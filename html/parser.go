@@ -1,8 +1,3 @@
-// ==================================================
-// Copyright (c) 2016 tacigar
-// https://github.com/tacigar/Go-HTML
-// ==================================================
-
 package html
 
 import (
@@ -22,7 +17,6 @@ func Parse(reader io.Reader) *Node {
 		nextToken: nil,
 	}
 	parser.nextToken = tokenizer.Next()
-	// あとは適当に再帰するだけ
 	var parseImpl func() *Node
 	parseImpl = func() *Node {
 		switch parser.nextToken.Type {

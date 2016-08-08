@@ -1,13 +1,9 @@
-// ==================================================
-// Copyright (c) 2016 tacigar
-// https://github.com/tacigar/Go-HTML
-// ==================================================
-
 package html
 
 import (
 	"bufio"
-	"strings"
+	"io"
+	"unicode"
 )
 
 type tagParser struct {
@@ -36,9 +32,9 @@ var selfClosingTags = [...]string{
 	"wbr",
 }
 
-func newTagParser(tagStr string) *tagParser {
+func newTagParser(reader io.Reader) *tagParser {
 	return &tagParser{
-		reader:   bufio.NewReader(strings.NewReader(tagStr)),
+		reader:   bufio.NewReader(reader),
 		nextRune: -1,
 		buffer:   []rune{},
 	}
@@ -46,7 +42,7 @@ func newTagParser(tagStr string) *tagParser {
 
 // 空白文字(半角スペース、'\n'、'\r'、'\f'、'\t')を読み飛ばす
 func (tagParser *tagParser) skipSpace() {
-	for isSpace(tagParser.nextRune) {
+	for unicode.IsSpace(tagParser.nextRune) {
 		runeValue, _, _ := tagParser.reader.ReadRune()
 		tagParser.nextRune = runeValue
 	}
@@ -63,23 +59,23 @@ func (tagParser *tagParser) readNextIdentifier() string {
 	for {
 		tagParser.buffer = append(tagParser.buffer, tagParser.nextRune)
 		tagParser.readNext()
-		if isSpace(tagParser.nextRune) || tagParser.nextRune == rune('>') ||
-			tagParser.nextRune == rune('=') || tagParser.nextRune == rune('/') {
+		if unicode.IsSpace(tagParser.nextRune) || tagParser.nextRune == '>' ||
+			tagParser.nextRune == '=' || tagParser.nextRune == '/' {
 			return string(tagParser.buffer)
 		}
 	}
 }
 
-func parseTagToken(tagStr string) *Token {
-	parser := newTagParser(tagStr)
-	parser.readNext()                 // '<'を先読み
-	parser.readNext()                 // '<'の次の文字を先読みしておく
-	if parser.nextRune == rune('!') { // この場合はコメントかDOCTYPEなので無視
+func parseTagToken(reader io.Reader) *Token {
+	parser := newTagParser(reader)
+	parser.readNext()           // '<'を先読み
+	parser.readNext()           // '<'の次の文字を先読みしておく
+	if parser.nextRune == '!' { // この場合はコメントかDOCTYPEなので無視
 		return nil
 	}
 	parser.skipSpace()
 	parser.buffer = []rune{}
-	if parser.nextRune == rune('/') { // 終了タグの場合はシンプル
+	if parser.nextRune == '/' { // 終了タグの場合はシンプル
 		tagName := parser.readNextIdentifier()
 		return &Token{
 			Data:       tagName[1:], // '/'は含めないこととする
@@ -92,7 +88,7 @@ func parseTagToken(tagStr string) *Token {
 	parser.buffer = []rune{}
 	attributes := map[string]string{}
 	for {
-		if parser.nextRune == rune('/') || parser.nextRune == rune('>') {
+		if parser.nextRune == '/' || parser.nextRune == '>' {
 			for _, selfClosingTag := range selfClosingTags {
 				if selfClosingTag == tagName {
 					return &Token{
@@ -110,16 +106,16 @@ func parseTagToken(tagStr string) *Token {
 		}
 		key := parser.readNextIdentifier()
 		parser.skipSpace()
-		if parser.nextRune != rune('=') {
+		if parser.nextRune != '=' { // 次が属性キーである場合
 			attributes[key] = ""
 			continue
-		}
+		} // else 次は属性値
 		parser.readNext()
 		parser.skipSpace()
 		parser.buffer = []rune{}
-		delimiter := parser.nextRune
+		delimiter := parser.nextRune // デリミタは'\''or'"'なので抜き出しとく
 		parser.readNext()
-		for parser.nextRune != delimiter {
+		for parser.nextRune != delimiter { // 同じデリミタが来るまで
 			parser.buffer = append(parser.buffer, parser.nextRune)
 			parser.readNext()
 		} // nextRuneは'\"'

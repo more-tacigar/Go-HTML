@@ -1,17 +1,10 @@
-// ==================================================
-// Copyright (c) 2016 tacigar
-// https://github.com/tacigar/Go-HTML
-// ==================================================
-
 package html
 
 import (
 	"bufio"
 	"io"
+	"strings"
 )
-
-// HTMLの構文解析においては、字句解析でやるような細かいトークンに分割する
-// 必要性がないように感じたので、HTML要素をトークンとして扱うこととする。
 
 type TokenType int
 
@@ -70,7 +63,7 @@ func (tokenizer *Tokenizer) Next() *Token {
 	switch tokenizer.state {
 	case foundText:
 		for {
-			if tokenizer.nextRune == rune('<') {
+			if tokenizer.nextRune == '<' {
 				tokenizer.state = foundTag
 				if isSpaceString(string(tokenizer.buffer)) {
 					return tokenizer.Next()
@@ -83,19 +76,18 @@ func (tokenizer *Tokenizer) Next() *Token {
 				}
 			} else {
 				tokenizer.buffer = append(tokenizer.buffer, tokenizer.nextRune)
-				_, err := tokenizer.readNext()
-				if err == io.EOF {
+				if _, err := tokenizer.readNext(); err != nil && err == io.EOF {
 					return nil
 				}
 			}
 		}
 	case foundTag:
 		for {
-			if tokenizer.nextRune == rune('>') {
+			if tokenizer.nextRune == '>' {
 				tokenizer.state = foundText
 				tokenizer.buffer = append(tokenizer.buffer, tokenizer.nextRune)
 				tokenizer.readNext()
-				token := parseTagToken(string(tokenizer.buffer))
+				token := parseTagToken(strings.NewReader(string(tokenizer.buffer)))
 				if token != nil {
 					return token
 				} else { // コメントorDOCTYPEは無視する

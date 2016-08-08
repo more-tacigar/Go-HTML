@@ -1,8 +1,3 @@
-// ==================================================
-// Copyright (c) 2016 tacigar
-// https://github.com/tacigar/Go-HTML
-// ==================================================
-
 package html
 
 type NodeType int
